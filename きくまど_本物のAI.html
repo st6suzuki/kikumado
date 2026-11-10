@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>きくまど（本物の AI 版）｜保護者のための AI 相談窓口</title>
+
+<script>
+/* ==========================================================================
+   ここから「設定」と「学校の情報」と「色」です。
+   言葉や色を変えたいときは、この部分だけを書きかえてください。
+
+   【言葉の変え方】
+   ・` ` （バッククォート）で囲まれた中の文字を、自由に書きかえてください
+   ・改行したいところは、そのまま Enter で改行すれば OK です
+   ・` や { } [ ] , は消さないように注意してください
+
+   【AI について】
+   ・Google の Gemini を使います。最初に開いたとき、API キーを入れる欄が出ます
+   ・API キーは、このパソコンのブラウザの中だけに保存されます（このファイルには書かれません）
+   ・無料枠では、入力した内容が Google のサービス改善に使われることがあります
+     実在の人の名前や、本当の相談内容は入れないでください
+   ========================================================================== */
+
+const 設定 = {
+  窓口の名前: `きくまど`,
+  ひとこと説明: `保護者のための AI 相談窓口`,
+  学校の名前: `みどり市立 小・中学校`,
+  受付時間: `24時間受付`,
+
+  // 最初に AI が言うあいさつ
+  あいさつ: `こんにちは、きくまどです。
+学校へのご質問やご相談を、24時間お聞きします。どんなことでしょうか？`,
+
+  // まとめのカード
+  まとめの見出し: `先生へのまとめ（送る前のご確認）`,
+  送るボタン: `この内容で送る`,
+  直すボタン: `直したい`,
+  送ったあとの表示: `送信しました`,
+
+  // 送ったあとに出るお知らせと、AI の返事
+  届け先_緊急: `担任・生徒指導担当の先生に届けました（緊急度「高」のため優先）`,
+  届け先_ふつう: `担任の先生に届けました`,
+  送ったあとの返事_緊急: `お送りしました。学校から優先してご連絡します。`,
+  送ったあとの返事_ふつう: `お送りしました。内容を確認のうえ、学校からご連絡します。`,
+  緊急のときの案内: `お子さんの身に危険を感じるときや、今すぐ誰かに話したいときは、学校へお電話いただくか、「24時間子供SOSダイヤル」（0120-0-78310）もご利用ください。`,
+
+  // AI が答えだけで済ませたときのお知らせ
+  回答済みのお知らせ: `AI が回答しました ・ 先生への連絡はありません`,
+
+  // 使う AI のモデル（ふつうは変えなくて OK）
+  モデル: `gemini-3.6-flash`,
+};
+
+// AI が「簡単な質問」に答えるときに使う情報です
+// ここに無いことは、AI は答えずに先生へ回します
+const 学校の情報 = `
+- 運動会: 11月21日（土）。雨で延期するときは、当日の朝6時までに、学校からのメールとホームページでお知らせする。延期した場合は次の日（11月22日）に行う。
+- 運動会の持ち物: 体操服、帽子、水筒、タオル。小学生はお弁当も持ってくる（中学生は給食がある）。
+- 欠席・遅刻の連絡: 当日の朝8時までに、学校からのメールにある「欠席連絡フォーム」から送る。電話でもよい。
+- 給食費: 毎月10日に、登録した口座から引き落とし。
+- 個人面談: 12月1日（月）〜5日（金）。日程の希望は、11月20日までに学校からのメールで出す。
+- スクールカウンセラー: 毎週水曜日に学校に来る。相談の予約は担任の先生へ。
+- 冬休み: 12月25日（木）〜1月7日（水）。
+`;
+
+// 色は「#」から始まる 6 けたの記号で書きます（例: #3949ab）
+const 色 = {
+  メインの色: `#3949ab`,          // 上の帯・保護者の吹き出し・ボタン
+  メインの色の上の文字: `#ffffff`, // メインの色の上に乗る文字
+  会話の背景: `#eef1f8`,          // 会話の後ろ
+  AIの吹き出し: `#ffffff`,        // AI の吹き出し
+  文字の色: `#1a1d29`,            // ふつうの文字
+  緊急度_高: `#c62828`,           // 緊急度「高」の札（赤）
+  緊急度_中: `#a75400`,           // 緊急度「中」の札（オレンジ）
+  緊急度_低: `#2e7d32`,           // 緊急度「低」の札（緑）
+  外側の背景: `#dfe3ec`,          // スマホの外側（パソコンで見たとき）
+};
+/* ==========================================================================
+   設定はここまで。ここから下は、画面と AI を動かす仕組みです。
+   ========================================================================== */
+</script>
+
+<style>
+  :root {
+    --main: #3949ab;
+    --on-main: #ffffff;
+    --chat-bg: #eef1f8;
+    --ai-bubble: #ffffff;
+    --text: #1a1d29;
+    --urgent-high: #c62828;
+    --urgent-mid: #a75400;
+    --urgent-low: #2e7d32;
+    --page-bg: #dfe3ec;
+    --sub-text: #4a5068;
+    --line: #c9cfdf;
+    --frame: #1c2030;
+    --error: #b3261e;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    display: grid;
+    place-items: center;
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: "Noto Sans CJK JP", "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, input, textarea { font: inherit; color: inherit; }
+
+  /* スマホの枠。画面の高さに合わせて、中身ごと拡大・縮小する */
+  .phone {
+    height: min(94vh, 960px);
+    aspect-ratio: 390 / 800;
+    padding: 12px;
+    border-radius: 56px;
+    background: var(--frame);
+    box-shadow: 0 24px 60px rgba(28, 32, 48, 0.28);
+    container-type: inline-size;
+  }
+
+  .screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 44px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--chat-bg);
+    /* 幅 390 のとき 16px になる大きさ。以下の em はすべてこれが基準 */
+    font-size: 4.1026cqw;
+    line-height: 1.6;
+  }
+
+  /* ステータスバー */
+  .status {
+    flex: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.875em 1.75em 0.25em;
+    background: var(--main);
+    color: var(--on-main);
+    font-size: 0.875em;
+    font-weight: 700;
+  }
+  .status-icons { display: flex; gap: 0.375em; align-items: center; }
+  .status-icons svg { height: 0.875em; width: auto; fill: currentColor; }
+
+  /* 上の帯 */
+  .header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.625em;
+    padding: 0.5em 1em 0.75em;
+    background: var(--main);
+    color: var(--on-main);
+  }
+  .header-icon {
+    width: 2.5em;
+    height: 2.5em;
+    border-radius: 50%;
+    background: var(--on-main);
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+  .header-icon svg { width: 1.5em; height: 1.5em; fill: var(--main); }
+  .header-name { font-size: 1.25em; font-weight: 700; line-height: 1.2; }
+  .header-sub { font-size: 0.8125em; line-height: 1.3; }
+
+  .info-band {
+    flex: none;
+    display: flex;
+    justify-content: center;
+    gap: 0.75em;
+    padding: 0.375em 1em;
+    background: #ffffff;
+    border-bottom: 1px solid var(--line);
+    color: var(--sub-text);
+    font-size: 0.8125em;
+    font-weight: 700;
+  }
+
+  /* 会話の欄 */
+  .chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75em 0.875em 1em;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625em;
+    scrollbar-width: none;
+  }
+  .chat::-webkit-scrollbar { display: none; }
+
+  .date-chip {
+    align-self: center;
+    padding: 0.125em 0.875em;
+    border-radius: 999px;
+    background: #d5dbea;
+    color: #333a52;
+    font-size: 0.8125em;
+    font-weight: 700;
+  }
+
+  .row { display: flex; gap: 0.5em; align-items: flex-start; }
+  .row.parent { justify-content: flex-end; }
+
+  .avatar {
+    width: 2.25em;
+    height: 2.25em;
+    flex: none;
+    border-radius: 50%;
+    background: var(--main);
+    color: var(--on-main);
+    display: grid;
+    place-items: center;
+    font-size: 0.875em;
+    font-weight: 700;
+    margin-top: 1.25em;
+  }
+  .row.cont .avatar { visibility: hidden; margin-top: 0; height: 0; }
+
+  .body { max-width: 82%; display: flex; flex-direction: column; gap: 0.375em; }
+  .row.wide .body { width: 86%; max-width: 86%; }
+  .name { font-size: 0.75em; font-weight: 700; color: var(--sub-text); }
+
+  .bubble {
+    padding: 0.625em 0.875em;
+    border-radius: 1.125em;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+  .row.ai .bubble {
+    background: var(--ai-bubble);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-top-left-radius: 0.25em;
+  }
+  .row.parent .bubble {
+    max-width: 82%;
+    background: var(--main);
+    color: var(--on-main);
+    border-top-right-radius: 0.25em;
+  }
+
+  /* 入力中の「…」 */
+  .typing { display: flex; gap: 0.3em; padding: 0.875em 1em; }
+  .typing span {
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background: #8a92ab;
+    animation: bounce 1s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-0.35em); }
+  }
+
+  /* 選択肢 */
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5em; }
+  .chip {
+    min-height: 2.75em;
+    padding: 0.4em 0.875em;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 2px solid var(--main);
+    background: #ffffff;
+    color: var(--main);
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .chip:active, .btn:active { transform: scale(0.94); }
+  .chips.done .chip { border-color: #9aa1b5; color: #5a6175; cursor: default; }
+  .chips.done .chip:active { transform: none; }
+  .chips .chip.selected { border-color: var(--main); background: var(--main); color: var(--on-main); }
+
+  /* まとめのカード */
+  .card {
+    background: #ffffff;
+    border: 2px solid var(--main);
+    border-radius: 1em;
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.625em 0.875em;
+    background: var(--main);
+    color: var(--on-main);
+    font-weight: 700;
+  }
+  .card-head svg { width: 1.125em; height: 1.125em; fill: currentColor; flex: none; }
+  .card dl { margin: 0; padding: 0.375em 0.875em; }
+  .card-row {
+    display: grid;
+    grid-template-columns: 4em 1fr;
+    gap: 0.5em;
+    align-items: baseline;
+    padding: 0.5em 0;
+    border-bottom: 1px solid #e3e6ef;
+  }
+  .card-row:last-child { border-bottom: 0; }
+  .card dt { font-size: 0.8125em; font-weight: 700; color: var(--sub-text); }
+  .card dd { margin: 0; }
+  .badge {
+    display: inline-block;
+    padding: 0 0.75em;
+    border-radius: 0.375em;
+    color: #ffffff;
+    font-weight: 700;
+  }
+  .badge.high { background: var(--urgent-high); }
+  .badge.mid { background: var(--urgent-mid); }
+  .badge.low { background: var(--urgent-low); }
+
+  .card-actions { display: flex; flex-direction: column; gap: 0.5em; padding: 0.25em 0.875em 0.875em; }
+  .btn {
+    min-height: 2.75em;
+    display: grid;
+    place-items: center;
+    border-radius: 0.5em;
+    font-weight: 700;
+    cursor: pointer;
+    border: 2px solid var(--main);
+  }
+  .btn.primary { background: var(--main); color: var(--on-main); }
+  .btn.secondary { background: #ffffff; color: var(--main); }
+  .sent {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375em;
+    min-height: 2.75em;
+    margin: 0.25em 0.875em 0.875em;
+    border-radius: 0.5em;
+    background: #e6f2e7;
+    color: #1b5e20;
+    font-weight: 700;
+  }
+  .sent svg { width: 1.125em; height: 1.125em; fill: currentColor; }
+
+  /* お知らせ */
+  .notice {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    max-width: 94%;
+    margin: 0.25em 0;
+    padding: 0.5em 1em;
+    border-radius: 0.75em;
+    background: #ffffff;
+    border: 2px solid #2e7d32;
+    color: #1b5e20;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+  .notice svg { width: 1.25em; height: 1.25em; fill: currentColor; flex: none; }
+  .notice.error { border-color: var(--error); color: var(--error); }
+
+  /* API キーを入れるカード */
+  .key-card {
+    background: #ffffff;
+    border: 2px solid var(--main);
+    border-radius: 1em;
+    padding: 1em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+  }
+  .key-card h2 { margin: 0; font-size: 1.125em; line-height: 1.4; }
+  .key-card p { margin: 0; font-size: 0.875em; color: var(--sub-text); }
+  .key-card ol { margin: 0; padding-left: 1.25em; font-size: 0.875em; color: var(--sub-text); }
+  .key-card label { margin-top: 0.25em; font-weight: 700; }
+  .key-card input {
+    min-height: 2.75em;
+    padding: 0.5em 0.75em;
+    border: 1px solid #6b7187;
+    border-radius: 0.5em;
+    background: #ffffff;
+    width: 100%;
+  }
+  .key-card .field-error { color: var(--error); font-size: 0.875em; font-weight: 700; }
+
+  /* 入力欄 */
+  .composer {
+    flex: none;
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5em;
+    padding: 0.625em 0.75em 1.5em;
+    background: #ffffff;
+    border-top: 1px solid var(--line);
+  }
+  .input {
+    flex: 1;
+    min-height: 2.75em;
+    max-height: 7em;
+    padding: 0.5em 0.875em;
+    border: 1px solid #8a92ab;
+    border-radius: 1.375em;
+    background: #ffffff;
+    line-height: 1.5;
+    resize: none;
+    overflow-y: auto;
+  }
+  .send {
+    flex: none;
+    min-width: 4em;
+    min-height: 2.75em;
+    padding: 0 0.875em;
+    border: 0;
+    border-radius: 1.375em;
+    display: grid;
+    place-items: center;
+    background: var(--main);
+    color: var(--on-main);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  :focus-visible { outline: 3px solid #f2a900; outline-offset: 2px; }
+
+  /* 出てくるときの動き */
+  .appear { animation: appear 0.28s ease-out; }
+  @keyframes appear {
+    from { opacity: 0; transform: translateY(0.5em); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* 発表者向けの操作パネル（パソコンの広い画面だけ） */
+  .panel {
+    position: fixed;
+    left: 24px;
+    bottom: 24px;
+    max-width: 380px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.85);
+    color: #3d4458;
+    font-size: 14px;
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .panel b { color: var(--text); }
+  .panel-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+  .panel button {
+    min-height: 36px;
+    padding: 4px 12px;
+    border: 1px solid #6b7187;
+    border-radius: 6px;
+    background: #ffffff;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .panel.hidden { display: none; }
+
+  @media (max-width: 900px) {
+    .panel { display: none; }
+  }
+
+  /* 本物のスマホで開いたときは、枠を消して画面いっぱいに */
+  @media (max-width: 600px) {
+    body { display: block; }
+    .phone { width: 100vw; height: 100dvh; aspect-ratio: auto; padding: 0; border-radius: 0; box-shadow: none; }
+    .screen { border-radius: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .appear { animation: none; }
+    .typing span { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="screen">
+    <div class="status">
+      <span id="clock"></span>
+      <span class="status-icons" aria-hidden="true">
+        <svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg viewBox="0 0 26 12"><rect x="0.75" y="0.75" width="21.5" height="10.5" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="2.75" y="2.75" width="15" height="6.5" rx="1.5"/><rect x="23.5" y="4" width="2" height="4" rx="1"/></svg>
+      </span>
+    </div>
+    <div class="header">
+      <div class="header-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.4 1.3 4.6 3.4 6.1L4.6 21l4.2-2.3c1 .2 2.1.3 3.2.3 5.5 0 10-3.6 10-8s-4.5-8-10-8zm-4.5 9.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm4.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm4.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/></svg>
+      </div>
+      <div>
+        <h1 class="header-name" id="headerName" style="margin:0"></h1>
+        <div class="header-sub" id="headerSub"></div>
+      </div>
+    </div>
+    <div class="info-band">
+      <span id="schoolName"></span>
+      <span id="hours"></span>
+    </div>
+    <div class="chat" id="chat" role="log" aria-live="polite"></div>
+    <form class="composer" id="composer">
+      <label for="input" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">メッセージ</label>
+      <textarea class="input" id="input" rows="1" autocomplete="off"></textarea>
+      <button class="send" type="submit">送信</button>
+    </form>
+  </div>
+</div>
+
+<div class="panel" id="panel">
+  <div><b>本物の AI 版（Gemini）</b></div>
+  <div id="keyState"></div>
+  <div class="panel-buttons">
+    <button type="button" id="restart">会話をやり直す</button>
+    <button type="button" id="changeKey">API キーを変える</button>
+  </div>
+  <div>送信: Enter　改行: Shift＋Enter　このパネルを隠す: Esc</div>
+</div>
+
+<script>
+(() => {
+  const アイコン = {
+    チェック: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.6L6.4 12.2l1.6-1.6 2.8 2.8 5.2-5.2 1.6 1.6-6.8 6.8z"/></svg>`,
+    注意: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>`,
+    メモ: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2zm8 1.5V8h4.5L14 3.5zM7 12v2h10v-2H7zm0 4v2h7v-2H7z"/></svg>`,
+  };
+
+  // 色を画面に反映する
+  const 色の対応 = {
+    メインの色: "--main",
+    メインの色の上の文字: "--on-main",
+    会話の背景: "--chat-bg",
+    AIの吹き出し: "--ai-bubble",
+    文字の色: "--text",
+    緊急度_高: "--urgent-high",
+    緊急度_中: "--urgent-mid",
+    緊急度_低: "--urgent-low",
+    外側の背景: "--page-bg",
+  };
+  for (const [名前, 変数] of Object.entries(色の対応)) {
+    if (色[名前]) document.documentElement.style.setProperty(変数, 色[名前]);
+  }
+
+  document.getElementById("headerName").textContent = 設定.窓口の名前;
+  document.getElementById("headerSub").textContent = 設定.ひとこと説明;
+  document.getElementById("schoolName").textContent = 設定.学校の名前;
+  document.getElementById("hours").textContent = 設定.受付時間;
+
+  const chat = document.getElementById("chat");
+  const input = document.getElementById("input");
+  const composer = document.getElementById("composer");
+  const clock = document.getElementById("clock");
+  const panel = document.getElementById("panel");
+  const keyState = document.getElementById("keyState");
+
+  // ---- API キーの保存（このブラウザの中だけ） ----
+
+  const 鍵の保存場所 = "kikumado.geminiApiKey";
+  let 鍵の控え = "";
+  const 鍵 = {
+    読む() {
+      try { return localStorage.getItem(鍵の保存場所) || 鍵の控え; } catch { return 鍵の控え; }
+    },
+    書く(v) {
+      鍵の控え = v;
+      try { v ? localStorage.setItem(鍵の保存場所, v) : localStorage.removeItem(鍵の保存場所); } catch {}
+      鍵の状態を表示();
+    },
+  };
+  function 鍵の状態を表示() {
+    keyState.textContent = 鍵.読む() ? "API キー: 設定済み ✓" : "API キー: まだ入っていません";
+  }
+
+  // ---- 時計と日付 ----
+
+  const 曜日 = ["日", "月", "火", "水", "木", "金", "土"];
+  function 時刻を更新() {
+    const d = new Date();
+    clock.textContent = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+  function 今日() {
+    const d = new Date();
+    return `${d.getMonth() + 1}月${d.getDate()}日（${曜日[d.getDay()]}）`;
+  }
+  時刻を更新();
+  setInterval(時刻を更新, 30 * 1000);
+
+  // ---- 部品を足す ----
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function 下まで送る(なめらか) {
+    const last = chat.lastElementChild;
+    // まとめのカードが出た直後（送る前）は、カードの頭から見せる
+    const カードの頭 = last?.classList.contains("wide") && last.querySelector(".card-actions");
+    const top = カードの頭 ? last.offsetTop - 8 : chat.scrollHeight;
+    chat.scrollTo({ top, behavior: なめらか ? "smooth" : "auto" });
+  }
+
+  function AIの行(広い) {
+    const 続き = chat.lastElementChild?.classList.contains("ai");
+    const row = el("div", "row ai appear" + (続き ? " cont" : "") + (広い ? " wide" : ""));
+    row.append(el("div", "avatar", "AI"));
+    const body = el("div", "body");
+    if (!続き) body.append(el("div", "name", 設定.窓口の名前));
+    row.append(body);
+    chat.append(row);
+    return body;
+  }
+
+  function AIの発言(text, 選択肢) {
+    const body = AIの行(false);
+    body.append(el("div", "bubble", text));
+    if (選択肢?.length) {
+      const chips = el("div", "chips");
+      for (const c of 選択肢) {
+        const b = el("button", "chip", c);
+        b.type = "button";
+        b.addEventListener("click", () => {
+          if (chips.classList.contains("done") || 待ち中) return;
+          b.classList.add("selected");
+          送る(c);
+        });
+        chips.append(b);
+      }
+      body.append(chips);
+    }
+    下まで送る(true);
+  }
+
+  function 入力中の表示() {
+    const body = AIの行(false);
+    const bubble = el("div", "bubble typing");
+    bubble.setAttribute("aria-label", "AI が返事を書いています");
+    bubble.innerHTML = "<span></span><span></span><span></span>";
+    body.append(bubble);
+    下まで送る(true);
+    return body.parentElement;
+  }
+
+  function 保護者の発言(text) {
+    const row = el("div", "row parent appear");
+    row.append(el("div", "bubble", text));
+    chat.append(row);
+    下まで送る(true);
+    return row;
+  }
+
+  function お知らせ(text, エラー) {
+    const n = el("div", "notice appear" + (エラー ? " error" : ""));
+    n.innerHTML = エラー ? アイコン.注意 : アイコン.チェック;
+    n.append(el("span", null, text));
+    chat.append(n);
+    下まで送る(true);
+  }
+
+  const まとめの項目 = [
+    ["grade", "学年"],
+    ["category", "分類"],
+    ["urgency", "緊急度"],
+    ["summary", "要約"],
+    ["request", "希望"],
+  ];
+
+  function まとめのカード(まとめ) {
+    const body = AIの行(true);
+    const card = el("div", "card");
+    const head = el("div", "card-head");
+    head.innerHTML = アイコン.メモ;
+    head.append(el("span", null, 設定.まとめの見出し));
+    card.append(head);
+
+    const dl = el("dl");
+    for (const [key, 項目] of まとめの項目) {
+      const 値 = まとめ[key] || "（なし）";
+      const r = el("div", "card-row");
+      r.append(el("dt", null, 項目));
+      const dd = el("dd");
+      const 札 = { 高: "high", 中: "mid", 低: "low" }[値];
+      if (key === "urgency" && 札) dd.append(el("span", "badge " + 札, 値));
+      else dd.textContent = 値;
+      r.append(dd);
+      dl.append(r);
+    }
+    card.append(dl);
+
+    const actions = el("div", "card-actions");
+    const 送るボタン = el("button", "btn primary", 設定.送るボタン);
+    const 直すボタン = el("button", "btn secondary", 設定.直すボタン);
+    送るボタン.type = 直すボタン.type = "button";
+    送るボタン.addEventListener("click", () => {
+      if (待ち中 || !actions.isConnected) return;
+      const done = el("div", "sent");
+      done.innerHTML = アイコン.チェック;
+      done.append(el("span", null, 設定.送ったあとの表示));
+      actions.replaceWith(done);
+      まとめを送った(まとめ);
+    });
+    直すボタン.addEventListener("click", () => {
+      if (待ち中 || !actions.isConnected) return;
+      actions.remove();
+      送る("まとめの内容を直したいです。");
+    });
+    actions.append(送るボタン, 直すボタン);
+    card.append(actions);
+    body.append(card);
+    下まで送る(true);
+  }
+
+  // ---- API キーを入れるカード ----
+
+  function 鍵のカード() {
+    const body = AIの行(true);
+    const card = el("form", "key-card");
+    card.innerHTML = `
+      <h2>はじめに：Gemini の API キーを入れてください</h2>
+      <p>本物の AI（Google の Gemini）とお話しするための鍵です。</p>
+      <ol>
+        <li>Google AI Studio（aistudio.google.com）を開く</li>
+        <li>「Get API key」から API キーを作る</li>
+        <li>できたキーをコピーして、下に貼り付ける</li>
+      </ol>
+      <p>キーはこのパソコンのブラウザの中だけに保存されます。無料枠では、入力した内容が Google のサービス改善に使われることがあるため、実在の人の情報は入れないでください。</p>
+      <label for="keyInput">API キー</label>
+      <input id="keyInput" type="password" autocomplete="off" spellcheck="false">
+      <div class="field-error" hidden></div>
+      <button class="btn primary" type="submit">保存して始める</button>
+    `;
+    card.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const v = card.querySelector("input").value.trim();
+      const err = card.querySelector(".field-error");
+      if (!v) {
+        err.textContent = "API キーを貼り付けてください。";
+        err.hidden = false;
+        return;
+      }
+      鍵.書く(v);
+      会話を始める();
+    });
+    body.append(card);
+    card.querySelector("input").focus();
+  }
+
+  // ---- AI とのやり取り ----
+
+  // AI に毎回返してもらう形
+  const 返事の形 = {
+    type: "object",
+    properties: {
+      reply: { type: "string", description: "保護者に見せる返事" },
+      choices: {
+        type: "array",
+        items: { type: "string" },
+        description: "保護者が選んで答えられる候補。自由に話してほしいときは空",
+      },
+      status: {
+        type: "string",
+        enum: ["listening", "answered", "summary"],
+        description: "listening=聞き取り中 / answered=学校の情報で答えて解決した / summary=まとめを出した",
+      },
+      summary: {
+        type: ["object", "null"],
+        description: "status が summary のときだけ入れる。それ以外は null",
+        properties: {
+          grade: { type: "string" },
+          category: { type: "string" },
+          urgency: { type: "string", enum: ["高", "中", "低"] },
+          summary: { type: "string" },
+          request: { type: "string" },
+        },
+        required: ["grade", "category", "urgency", "summary", "request"],
+      },
+    },
+    required: ["reply", "choices", "status", "summary"],
+  };
+
+  function AIへの指示() {
+    return `あなたは「${設定.窓口の名前}」です。${設定.学校の名前}が用意した、保護者からの質問や相談を受け付ける AI の窓口です。
+目的は、保護者の話をきちんと受け止めて先生に届けながら、先生の負担を減らすことです。
+最初のあいさつ（「${設定.あいさつ.replace(/\n/g, " ")}」）は、すでに画面に出ています。
+
+# 役割
+1. 簡単な質問への回答
+   - 下の「学校の情報」に答えがある質問には、その情報だけを使って答え、status を "answered" にする
+   - 情報にないことは推測で答えない。「先生にお伝えしますね」と伝え、相談として聞き取りに切り替える
+2. 相談の聞き取り
+   - 判断や対応が必要な相談（友だち関係・いじめ・先生の対応・成績・体調など）は、先生に伝える情報を集める
+   - 集める情報: お子さんの学年 / いつごろから / 何があったか / お子さんの様子 / 学校にしてほしいこと
+   - 質問は 1 回に 1 つだけ。保護者がすでに話したことは聞き直さない
+   - status は "listening"
+3. まとめ
+   - 必要な情報がそろったら、先生向けのまとめを summary に入れ、status を "summary" にする
+   - reply では「先生向けにまとめました。内容に間違いがないか、ご確認ください。」のように伝える
+   - 保護者が直したいと言ったら、どこを直すか聞き、直したまとめを出し直す
+
+# 話し方
+- やさしく丁寧な敬語で、1 回の返事は短く（3 文まで）
+- 話を受け止める一言を添える（毎回でなくてよい）
+- 否定しない。決めつけない。保護者・先生・子どもを評価しない
+- 学校を代表して謝ったり、約束したりしない（「必ず〜します」「〜させます」と言わない）。対応を決めるのは先生
+- けが・暴力・自分を傷つける・家に帰らないなど、命や安全に関わる内容は緊急度を「高」にし、「今すぐ危険があるときは、学校へお電話いただくか、110番・119番へ」と案内する
+- 学校と関係のない話題は、やんわり断って学校の話に戻す
+- 小学生と中学生、どちらの保護者もいる
+
+# 選択肢（choices）
+- 答えの形が決まっている質問（学年・時期・学校への希望など）では、2〜6 個の候補を入れる
+- 学年の候補は 小1・小2・小3・小4・小5・小6・中1・中2・中3
+- 自由に話してほしい質問では空にする
+
+# まとめ（summary）
+- grade: 例「小学5年」
+- category: 例「友だち関係（いじめの心配）」「学習・宿題」「行事」「先生の対応」
+- urgency: 高＝安全・いじめ・登校できないなど早い対応が必要 / 中＝数日以内に対応がほしい / 低＝急がない意見や要望
+- summary: 先生が 30 秒で読めるよう、事実を 2〜3 文で。感情的な言葉は事実に言いかえる
+- request: 保護者が学校に望むこと
+- status が "summary" 以外のときは null
+
+# 学校の情報
+${学校の情報.trim()}`;
+  }
+
+  let 履歴 = [];   // AI に渡す、これまでのやり取り
+  let 待ち中 = false;
+
+  const 文の一手 = (type, text) => ({ type, content: [{ type: "text", text }] });
+
+  async function AIに聞く() {
+    let res;
+    try {
+      res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": 鍵.読む() },
+        body: JSON.stringify({
+          model: 設定.モデル,
+          system_instruction: AIへの指示(),
+          input: 履歴,
+          store: false,
+          generation_config: { thinking_level: "low" },
+          response_format: { type: "text", mime_type: "application/json", schema: 返事の形 },
+        }),
+      });
+    } catch {
+      throw new Error("インターネットにつながっていないようです。接続を確かめて、もう一度送ってください。");
+    }
+
+    let data = await res.json().catch(() => null);
+    if (Array.isArray(data)) data = data[0];
+    if (!res.ok || data?.error) throw new Error(エラーの説明(res.status, data?.error));
+
+    // 返事の文字は steps の中の model_output にある（古い形の outputs にも対応）
+    const 部品 = (data.steps || [])
+      .filter((s) => s.type === "model_output")
+      .flatMap((s) => s.content || [])
+      .concat(data.steps ? [] : data.outputs || []);
+    const text = 部品.filter((c) => c.type === "text").map((c) => c.text).join("");
+    try {
+      return { text, 返事: JSON.parse(text) };
+    } catch {
+      throw new Error("AI の返事をうまく読み取れませんでした。もう一度送ってください。");
+    }
+  }
+
+  function エラーの説明(status, error) {
+    const 理由 = error?.details?.find((d) => d.reason)?.reason;
+    if (理由 === "API_KEY_INVALID") return "API キーが正しくないようです。左下の「API キーを変える」から入れ直してください。";
+    if (status === 429) return "AI の利用回数の上限に達しました。1 分ほど待ってから、もう一度送ってください。";
+    if (status === 403) return "この API キーでは AI を使えないようです。Google AI Studio でキーの設定を確かめてください。";
+    if (status === 404) return `AI のモデル「${設定.モデル}」が見つかりません。設定の「モデル」を確かめてください。`;
+    if (status >= 500) return "AI の側で一時的なエラーが起きました。少し待ってから、もう一度送ってください。";
+    return `AI からエラーが返ってきました（${status}）。もう一度送ってください。${error?.message ? "\n" + error.message : ""}`;
+  }
+
+  async function 送る(text) {
+    text = text.trim();
+    if (!text || 待ち中) return;
+    if (!鍵.読む()) { 鍵のカード(); return; }
+
+    // 選択肢・まとめのボタンは、次の発言をしたら使えなくする
+    chat.querySelectorAll(".chips:not(.done)").forEach((c) => c.classList.add("done"));
+    chat.querySelectorAll(".card-actions").forEach((a) => a.remove());
+
+    const 発言 = 保護者の発言(text);
+    履歴.push(文の一手("user_input", text));
+    待ち中 = true;
+    const 入力中 = 入力中の表示();
+
+    try {
+      const { text: 生の返事, 返事 } = await AIに聞く();
+      入力中.remove();
+      履歴.push(文の一手("model_output", 生の返事));
+
+      if (返事.status === "summary" && 返事.summary) {
+        AIの発言(返事.reply);
+        まとめのカード(返事.summary);
+      } else {
+        AIの発言(返事.reply, 返事.choices);
+        if (返事.status === "answered") お知らせ(設定.回答済みのお知らせ);
+      }
+    } catch (e) {
+      // 失敗した発言は取り消して、入力欄に戻す（もう一度送れるように）
+      入力中.remove();
+      履歴.pop();
+      発言.remove();
+      input.value = text;
+      入力欄の高さ();
+      お知らせ(e.message, true);
+    } finally {
+      待ち中 = false;
+    }
+  }
+
+  function まとめを送った(まとめ) {
+    const 緊急 = まとめ.urgency === "高";
+    お知らせ(緊急 ? 設定.届け先_緊急 : 設定.届け先_ふつう);
+    const 返事 = (緊急 ? 設定.送ったあとの返事_緊急 : 設定.送ったあとの返事_ふつう)
+      + (緊急 ? "\n\n" + 設定.緊急のときの案内 : "");
+    AIの発言(返事);
+    // 送ったことを AI にも伝えておく（このあと会話が続いたとき用）
+    履歴.push(文の一手("user_input", "（まとめを確認し、この内容で先生に送りました）"));
+    履歴.push(文の一手("model_output", JSON.stringify({ reply: 返事, choices: [], status: "listening", summary: null })));
+  }
+
+  function 会話を始める() {
+    履歴 = [];
+    待ち中 = false;
+    chat.innerHTML = "";
+    chat.append(el("div", "date-chip", 今日()));
+    if (!鍵.読む()) { 鍵のカード(); return; }
+    AIの発言(設定.あいさつ);
+    input.focus();
+  }
+
+  // ---- 入力欄 ----
+
+  function 入力欄の高さ() {
+    input.style.height = "auto";
+    input.style.height = input.scrollHeight + 2 + "px";
+  }
+  input.addEventListener("input", 入力欄の高さ);
+  input.addEventListener("keydown", (e) => {
+    // 日本語の変換中の Enter は送らない
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+      e.preventDefault();
+      composer.requestSubmit();
+    }
+  });
+  composer.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (待ち中 || !input.value.trim()) return;
+    const text = input.value;
+    input.value = "";
+    入力欄の高さ();
+    送る(text);
+  });
+
+  // ---- 操作パネル ----
+
+  document.getElementById("restart").addEventListener("click", 会話を始める);
+  document.getElementById("changeKey").addEventListener("click", () => {
+    鍵.書く("");
+    会話を始める();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") panel.classList.toggle("hidden");
+  });
+
+  鍵の状態を表示();
+  会話を始める();
+
+  // 文字の読み込みや、全画面への切り替えで大きさが変わったら表示位置を合わせ直す
+  document.fonts?.ready.then(() => 下まで送る(false));
+  new ResizeObserver(() => 下まで送る(false)).observe(chat);
+})();
+</script>
+</body>
+</html>

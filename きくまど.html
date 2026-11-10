@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>きくまど｜保護者のための AI 相談窓口</title>
+
+<script>
+/* ==========================================================================
+   ここから「台本」と「色」です。
+   言葉や色を変えたいときは、この部分だけを書きかえてください。
+
+   【言葉の変え方】
+   ・` ` （バッククォート）で囲まれた中の文字を、自由に書きかえてください
+   ・改行したいところは、そのまま Enter で改行すれば OK です
+   ・` や { } [ ] , は消さないように注意してください
+
+   【会話の 1 行の種類】
+   { AI: `...` }              … AI の発言
+   { 保護者: `...` }          … 保護者が入力して送る発言
+   { 保護者が選ぶ: `...` }    … 直前の AI の「選択肢」から 1 つを選ぶ
+   { まとめ: { ... } }        … 先生向けのまとめのカード
+   { 保護者が押す: `...` }    … まとめのカードのボタンを押す
+   { お知らせ: `...` }        … 画面の真ん中に出る、システムからのお知らせ
+
+   【発表のときの操作】
+   次へ: クリック／スペース／→　　戻る: ←　　最初から: R
+   場面へジャンプ: 1・2　　左下の操作ヒントを隠す: H
+   ========================================================================== */
+
+const 設定 = {
+  窓口の名前: `きくまど`,
+  ひとこと説明: `保護者のための AI 相談窓口`,
+  学校の名前: `みどり市立 小・中学校`,
+  受付時間: `24時間受付`,
+  まとめの見出し: `先生へのまとめ（送る前のご確認）`,
+  送るボタン: `この内容で送る`,
+  直すボタン: `直したい`,
+  送ったあとの表示: `送信しました`,
+};
+
+// 色は「#」から始まる 6 けたの記号で書きます（例: #3949ab）
+// 色の記号は「カラーコード」で検索すると見つかります
+const 色 = {
+  メインの色: `#3949ab`,          // 上の帯・保護者の吹き出し・ボタン
+  メインの色の上の文字: `#ffffff`, // メインの色の上に乗る文字
+  会話の背景: `#eef1f8`,          // 会話の後ろ
+  AIの吹き出し: `#ffffff`,        // AI の吹き出し
+  文字の色: `#1a1d29`,            // ふつうの文字
+  緊急度_高: `#c62828`,           // 緊急度「高」の札（赤）
+  緊急度_中: `#a75400`,           // 緊急度「中」の札（オレンジ）
+  緊急度_低: `#2e7d32`,           // 緊急度「低」の札（緑）
+  外側の背景: `#dfe3ec`,          // スマホの外側（パソコンで見たとき）
+};
+
+const 台本 = [
+  {
+    場面の名前: `簡単な質問`,
+    日付: `11月10日（火）`,
+    時刻: `22:05`,
+    会話: [
+      { AI: `こんばんは、きくまどです。
+学校へのご質問やご相談を、24時間お聞きします。` },
+      { 保護者: `今度の運動会、雨のときはどうやって連絡がきますか？` },
+      {
+        AI: `運動会を雨で延期するときは、当日の朝6時までに、学校からのメールとホームページでお知らせします。
+延期した場合は、次の日に行う予定です。`,
+        出典: `学校のお知らせ「運動会のご案内」（10月20日配布）`,
+      },
+      { 保護者: `わかりました。ありがとうございます！` },
+      { AI: `どういたしまして。
+ほかにも気になることがあれば、いつでもどうぞ。` },
+      { お知らせ: `AI が回答しました ・ 先生への連絡はありません` },
+    ],
+  },
+  {
+    場面の名前: `いじめの心配`,
+    日付: `11月12日（木）`,
+    時刻: `21:40`,
+    会話: [
+      { AI: `こんばんは、きくまどです。
+学校へのご質問やご相談を、24時間お聞きします。` },
+      { 保護者: `子どもが最近、学校に行きたくないと言っていて…。友だちと何かあったみたいなんです。` },
+      { AI: `教えてくださって、ありがとうございます。
+お子さんが学校に行きたくないと言うのは、とてもご心配ですよね。
+先生にきちんとお伝えできるよう、いくつか質問させてください。` },
+      {
+        AI: `まず、お子さんの学年を教えてください。`,
+        選択肢: [`小1`, `小2`, `小3`, `小4`, `小5`, `小6`, `中1`, `中2`, `中3`],
+      },
+      { 保護者が選ぶ: `小5` },
+      {
+        AI: `いつごろから、学校に行きたくないと言うようになりましたか？`,
+        選択肢: [`今週から`, `1〜2週間前から`, `1か月以上前から`],
+      },
+      { 保護者が選ぶ: `1〜2週間前から` },
+      { AI: `お子さんからは、どんなことを聞いていますか？
+わかる範囲で大丈夫です。` },
+      { 保護者: `同じクラスの何人かに、悪口を言われたり、無視されたりしているみたいです。休み時間はひとりでいると言っていました。` },
+      { AI: `つらいお話を、ありがとうございます。
+お子さんの体調や、おうちでの様子で、気になることはありますか？` },
+      { 保護者: `朝になるとお腹が痛いと言います。夜もあまり眠れていないようです。` },
+      {
+        AI: `学校には、どうしてほしいですか？`,
+        選択肢: [`まず話を聞いてほしい`, `クラスの様子を見てほしい`, `先生と直接話したい`],
+      },
+      { 保護者が選ぶ: `先生と直接話したい` },
+      { AI: `ありがとうございます。
+ここまでのお話を、先生向けにまとめました。内容に間違いがないか、ご確認ください。` },
+      {
+        まとめ: {
+          学年: `小学5年`,
+          分類: `友だち関係（いじめの心配）`,
+          緊急度: `高`,
+          要約: `1〜2週間前から登校をしぶっている。同じクラスの数人から、悪口や無視を受けているとのこと。朝の腹痛と、寝不足がある。`,
+          希望: `担任の先生と直接話したい`,
+        },
+      },
+      { 保護者が押す: `この内容で送る` },
+      { お知らせ: `担任・生徒指導担当の先生に届けました（緊急度「高」のため優先）` },
+      { AI: `お送りしました。学校から優先してご連絡します。
+
+お子さんの身に危険を感じるときや、今すぐ誰かに話したいときは、学校へお電話いただくか、「24時間子供SOSダイヤル」（0120-0-78310）もご利用ください。` },
+    ],
+  },
+];
+/* ==========================================================================
+   台本と色はここまで。ここから下は、画面を動かす仕組みです。
+   ========================================================================== */
+</script>
+
+<style>
+  :root {
+    --main: #3949ab;
+    --on-main: #ffffff;
+    --chat-bg: #eef1f8;
+    --ai-bubble: #ffffff;
+    --text: #1a1d29;
+    --urgent-high: #c62828;
+    --urgent-mid: #a75400;
+    --urgent-low: #2e7d32;
+    --page-bg: #dfe3ec;
+    --sub-text: #4a5068;
+    --line: #c9cfdf;
+    --frame: #1c2030;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    display: grid;
+    place-items: center;
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: "Noto Sans CJK JP", "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    cursor: pointer;
+  }
+
+  /* スマホの枠。画面の高さに合わせて、中身ごと拡大・縮小する */
+  .phone {
+    height: min(94vh, 960px);
+    aspect-ratio: 390 / 800;
+    padding: 12px;
+    border-radius: 56px;
+    background: var(--frame);
+    box-shadow: 0 24px 60px rgba(28, 32, 48, 0.28);
+    container-type: inline-size;
+  }
+
+  .screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 44px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--chat-bg);
+    /* 幅 390 のとき 16px になる大きさ。以下の em はすべてこれが基準 */
+    font-size: 4.1026cqw;
+    line-height: 1.6;
+  }
+
+  /* ステータスバー */
+  .status {
+    flex: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.875em 1.75em 0.25em;
+    background: var(--main);
+    color: var(--on-main);
+    font-size: 0.875em;
+    font-weight: 700;
+  }
+  .status-icons { display: flex; gap: 0.375em; align-items: center; }
+  .status-icons svg { height: 0.875em; width: auto; fill: currentColor; }
+
+  /* 上の帯 */
+  .header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.625em;
+    padding: 0.5em 1em 0.75em;
+    background: var(--main);
+    color: var(--on-main);
+  }
+  .header-icon {
+    width: 2.5em;
+    height: 2.5em;
+    border-radius: 50%;
+    background: var(--on-main);
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+  .header-icon svg { width: 1.5em; height: 1.5em; fill: var(--main); }
+  .header-name { font-size: 1.25em; font-weight: 700; line-height: 1.2; }
+  .header-sub { font-size: 0.8125em; line-height: 1.3; }
+
+  .info-band {
+    flex: none;
+    display: flex;
+    justify-content: center;
+    gap: 0.75em;
+    padding: 0.375em 1em;
+    background: #ffffff;
+    border-bottom: 1px solid var(--line);
+    color: var(--sub-text);
+    font-size: 0.8125em;
+    font-weight: 700;
+  }
+
+  /* 会話の欄 */
+  .chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75em 0.875em 1em;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625em;
+    scrollbar-width: none;
+  }
+  .chat::-webkit-scrollbar { display: none; }
+
+  .date-chip {
+    align-self: center;
+    padding: 0.125em 0.875em;
+    border-radius: 999px;
+    background: #d5dbea;
+    color: #333a52;
+    font-size: 0.8125em;
+    font-weight: 700;
+  }
+
+  .row { display: flex; gap: 0.5em; align-items: flex-start; }
+  .row.parent { justify-content: flex-end; }
+
+  .avatar {
+    width: 2.25em;
+    height: 2.25em;
+    flex: none;
+    border-radius: 50%;
+    background: var(--main);
+    color: var(--on-main);
+    display: grid;
+    place-items: center;
+    font-size: 0.875em;
+    font-weight: 700;
+    margin-top: 1.25em;
+  }
+  .row.cont .avatar { visibility: hidden; margin-top: 0; height: 0; }
+
+  .body { max-width: 82%; display: flex; flex-direction: column; gap: 0.375em; }
+  .row.wide .body { width: 86%; max-width: 86%; }
+  .name { font-size: 0.75em; font-weight: 700; color: var(--sub-text); }
+
+  .bubble {
+    padding: 0.625em 0.875em;
+    border-radius: 1.125em;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+  .row.ai .bubble {
+    background: var(--ai-bubble);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-top-left-radius: 0.25em;
+  }
+  .row.parent .bubble {
+    max-width: 82%;
+    background: var(--main);
+    color: var(--on-main);
+    border-top-right-radius: 0.25em;
+  }
+
+  .source {
+    margin-top: 0.5em;
+    padding-top: 0.5em;
+    border-top: 1px dashed var(--line);
+    color: var(--sub-text);
+    font-size: 0.8125em;
+  }
+
+  /* 入力中の「…」 */
+  .typing { display: flex; gap: 0.3em; padding: 0.875em 1em; }
+  .typing span {
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background: #8a92ab;
+    animation: bounce 1s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-0.35em); }
+  }
+
+  /* 選択肢 */
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5em; }
+  .chip {
+    min-height: 2.75em;
+    padding: 0.4em 0.875em;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    border: 2px solid var(--main);
+    background: #ffffff;
+    color: var(--main);
+    font-weight: 700;
+    transition: transform 0.15s, background 0.15s, color 0.15s;
+  }
+  .chips.done .chip { border-color: #9aa1b5; color: #5a6175; }
+  .chips .chip.selected { border-color: var(--main); background: var(--main); color: var(--on-main); }
+  .chip.pressing, .btn.pressing { transform: scale(0.92); }
+
+  /* まとめのカード */
+  .card {
+    background: #ffffff;
+    border: 2px solid var(--main);
+    border-radius: 1em;
+    overflow: hidden;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.625em 0.875em;
+    background: var(--main);
+    color: var(--on-main);
+    font-weight: 700;
+  }
+  .card-head svg { width: 1.125em; height: 1.125em; fill: currentColor; flex: none; }
+  .card dl { margin: 0; padding: 0.375em 0.875em; }
+  .card-row {
+    display: grid;
+    grid-template-columns: 4em 1fr;
+    gap: 0.5em;
+    align-items: baseline;
+    padding: 0.5em 0;
+    border-bottom: 1px solid #e3e6ef;
+  }
+  .card-row:last-child { border-bottom: 0; }
+  .card dt { font-size: 0.8125em; font-weight: 700; color: var(--sub-text); }
+  .card dd { margin: 0; }
+  .badge {
+    display: inline-block;
+    padding: 0 0.75em;
+    border-radius: 0.375em;
+    color: #ffffff;
+    font-weight: 700;
+  }
+  .badge.high { background: var(--urgent-high); }
+  .badge.mid { background: var(--urgent-mid); }
+  .badge.low { background: var(--urgent-low); }
+
+  .card-actions { display: flex; flex-direction: column; gap: 0.5em; padding: 0.25em 0.875em 0.875em; }
+  .btn {
+    min-height: 2.75em;
+    display: grid;
+    place-items: center;
+    border-radius: 0.5em;
+    font-weight: 700;
+    transition: transform 0.15s;
+  }
+  .btn.primary { background: var(--main); color: var(--on-main); }
+  .btn.secondary { background: #ffffff; color: var(--main); border: 2px solid var(--main); }
+  .sent {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375em;
+    min-height: 2.75em;
+    margin: 0.25em 0.875em 0.875em;
+    border-radius: 0.5em;
+    background: #e6f2e7;
+    color: #1b5e20;
+    font-weight: 700;
+  }
+  .sent svg { width: 1.125em; height: 1.125em; fill: currentColor; }
+
+  /* お知らせ */
+  .notice {
+    align-self: center;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    max-width: 94%;
+    margin: 0.25em 0;
+    padding: 0.5em 1em;
+    border-radius: 0.75em;
+    background: #ffffff;
+    border: 2px solid #2e7d32;
+    color: #1b5e20;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+  .notice svg { width: 1.25em; height: 1.25em; fill: currentColor; flex: none; }
+
+  /* 最初の表紙 */
+  .splash {
+    margin: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5em;
+    text-align: center;
+  }
+  .splash-icon {
+    width: 5.5em;
+    height: 5.5em;
+    border-radius: 1.5em;
+    background: var(--main);
+    display: grid;
+    place-items: center;
+  }
+  .splash-icon svg { width: 3.25em; height: 3.25em; fill: var(--on-main); }
+  .splash-name { margin-top: 0.25em; font-size: 2.25em; font-weight: 700; color: var(--main); line-height: 1.2; }
+  .splash-sub { font-size: 1.125em; font-weight: 700; }
+  .splash-school { color: var(--sub-text); }
+
+  /* 入力欄（見た目だけ） */
+  .composer {
+    flex: none;
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5em;
+    padding: 0.625em 0.75em 1.5em;
+    background: #ffffff;
+    border-top: 1px solid var(--line);
+  }
+  .input {
+    flex: 1;
+    min-height: 2.75em;
+    max-height: 5.5em;
+    overflow: hidden;
+    padding: 0.5em 0.875em;
+    border: 1px solid #8a92ab;
+    border-radius: 1.375em;
+    background: #ffffff;
+    line-height: 1.5;
+  }
+  .input.empty::before { content: "メッセージを入力"; color: #6b7187; }
+  .input.typing-now::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    margin-left: 1px;
+    vertical-align: -0.15em;
+    background: var(--main);
+    animation: blink 0.8s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .send {
+    flex: none;
+    min-width: 4em;
+    min-height: 2.75em;
+    padding: 0 0.875em;
+    border-radius: 1.375em;
+    display: grid;
+    place-items: center;
+    background: var(--main);
+    color: var(--on-main);
+    font-weight: 700;
+  }
+
+  /* 出てくるときの動き */
+  .appear { animation: appear 0.28s ease-out; }
+  @keyframes appear {
+    from { opacity: 0; transform: translateY(0.5em); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* 発表者向けの操作ヒント（パソコンの広い画面だけ） */
+  .hint {
+    position: fixed;
+    left: 24px;
+    bottom: 24px;
+    max-width: 380px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.8);
+    color: #3d4458;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .hint b { color: var(--text); }
+  .hint.hidden { display: none; }
+
+  @media (max-width: 900px) {
+    .hint { display: none; }
+  }
+
+  /* 本物のスマホで開いたときは、枠を消して画面いっぱいに */
+  @media (max-width: 600px) {
+    body { display: block; }
+    .phone { width: 100vw; height: 100dvh; aspect-ratio: auto; padding: 0; border-radius: 0; box-shadow: none; }
+    .screen { border-radius: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .appear { animation: none; }
+    .typing span { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="screen">
+    <div class="status">
+      <span id="clock">21:40</span>
+      <span class="status-icons" aria-hidden="true">
+        <svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg viewBox="0 0 26 12"><rect x="0.75" y="0.75" width="21.5" height="10.5" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="2.75" y="2.75" width="15" height="6.5" rx="1.5"/><rect x="23.5" y="4" width="2" height="4" rx="1"/></svg>
+      </span>
+    </div>
+    <div class="header">
+      <div class="header-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.4 1.3 4.6 3.4 6.1L4.6 21l4.2-2.3c1 .2 2.1.3 3.2.3 5.5 0 10-3.6 10-8s-4.5-8-10-8zm-4.5 9.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm4.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm4.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/></svg>
+      </div>
+      <div>
+        <div class="header-name" id="headerName"></div>
+        <div class="header-sub" id="headerSub"></div>
+      </div>
+    </div>
+    <div class="info-band">
+      <span id="schoolName"></span>
+      <span id="hours"></span>
+    </div>
+    <div class="chat" id="chat" role="log"></div>
+    <div class="composer" aria-hidden="true">
+      <div class="input empty" id="input"></div>
+      <div class="send">送信</div>
+    </div>
+  </div>
+</div>
+
+<div class="hint" id="hint">
+  <div id="progress"></div>
+  <div><b>次へ</b> クリック／スペース／→　<b>戻る</b> ←</div>
+  <div><b>最初から</b> R　<b>場面へ</b> 1・2　<b>このヒントを隠す</b> H</div>
+</div>
+
+<script>
+(() => {
+  const アイコン = {
+    吹き出し: document.querySelector(".header-icon svg").outerHTML,
+    チェック: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 14.6L6.4 12.2l1.6-1.6 2.8 2.8 5.2-5.2 1.6 1.6-6.8 6.8z"/></svg>`,
+    メモ: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2zm8 1.5V8h4.5L14 3.5zM7 12v2h10v-2H7zm0 4v2h7v-2H7z"/></svg>`,
+  };
+
+  // 色を画面に反映する
+  const 色の対応 = {
+    メインの色: "--main",
+    メインの色の上の文字: "--on-main",
+    会話の背景: "--chat-bg",
+    AIの吹き出し: "--ai-bubble",
+    文字の色: "--text",
+    緊急度_高: "--urgent-high",
+    緊急度_中: "--urgent-mid",
+    緊急度_低: "--urgent-low",
+    外側の背景: "--page-bg",
+  };
+  for (const [名前, 変数] of Object.entries(色の対応)) {
+    if (色[名前]) document.documentElement.style.setProperty(変数, 色[名前]);
+  }
+
+  document.getElementById("headerName").textContent = 設定.窓口の名前;
+  document.getElementById("headerSub").textContent = 設定.ひとこと説明;
+  document.getElementById("schoolName").textContent = 設定.学校の名前;
+  document.getElementById("hours").textContent = 設定.受付時間;
+
+  const chat = document.getElementById("chat");
+  const input = document.getElementById("input");
+  const clock = document.getElementById("clock");
+  const hint = document.getElementById("hint");
+  const progress = document.getElementById("progress");
+
+  // 全場面の会話を 1 列に並べる
+  const 手順 = [];
+  台本.forEach((場面, s) => 場面.会話.forEach((step) => 手順.push({ s, step })));
+
+  let pos = 0;          // 表示済みの手数
+  let 表示中の場面 = 0;
+  let animId = 0;       // 動きの途中で次へ進んだときに、古い動きを止めるための番号
+  let 動作中 = false;
+
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function 種類(step) {
+    return ["AI", "保護者", "保護者が選ぶ", "まとめ", "保護者が押す", "お知らせ"].find((k) => k in step);
+  }
+
+  function 下まで送る(なめらか) {
+    const last = chat.lastElementChild;
+    // まとめのカードが出た直後（送る前）は、カードの頭から見せる
+    const カードの頭 = last?.classList.contains("wide") && last.querySelector(".card-actions");
+    const top = カードの頭 ? last.offsetTop - 8 : chat.scrollHeight;
+    chat.scrollTo({ top, behavior: なめらか ? "smooth" : "auto" });
+  }
+
+  function 入力欄(text, 入力中) {
+    input.textContent = text;
+    input.classList.toggle("empty", !text && !入力中);
+    input.classList.toggle("typing-now", !!入力中);
+    input.scrollTop = input.scrollHeight;
+  }
+
+  // ---- 部品を足す ----
+
+  function AIの行(動き, 広い) {
+    const 続き = chat.lastElementChild?.classList.contains("ai");
+    const row = el("div", "row ai" + (続き ? " cont" : "") + (広い ? " wide" : "") + (動き ? " appear" : ""));
+    row.append(el("div", "avatar", "AI"));
+    const body = el("div", "body");
+    if (!続き) body.append(el("div", "name", 設定.窓口の名前));
+    row.append(body);
+    chat.append(row);
+    return body;
+  }
+
+  function AIの発言(step, 動き) {
+    const body = AIの行(動き);
+    const bubble = el("div", "bubble", step.AI);
+    if (step.出典) bubble.append(el("div", "source", "出典：" + step.出典));
+    body.append(bubble);
+    if (step.選択肢) {
+      const chips = el("div", "chips");
+      step.選択肢.forEach((c) => chips.append(el("span", "chip", c)));
+      body.append(chips);
+    }
+  }
+
+  function 入力中の表示() {
+    const body = AIの行(true);
+    const bubble = el("div", "bubble typing");
+    bubble.innerHTML = "<span></span><span></span><span></span>";
+    body.append(bubble);
+    return body.parentElement;
+  }
+
+  function 保護者の発言(text, 動き) {
+    const row = el("div", "row parent" + (動き ? " appear" : ""));
+    row.append(el("div", "bubble", text));
+    chat.append(row);
+  }
+
+  function まとめのカード(内容, 動き) {
+    const body = AIの行(動き, true);
+    const card = el("div", "card");
+    const head = el("div", "card-head");
+    head.innerHTML = アイコン.メモ;
+    head.append(el("span", null, 設定.まとめの見出し));
+    card.append(head);
+
+    const dl = el("dl");
+    for (const [項目, 値] of Object.entries(内容)) {
+      const r = el("div", "card-row");
+      r.append(el("dt", null, 項目.replaceAll("_", " ")));
+      const dd = el("dd");
+      const 札 = { 高: "high", 中: "mid", 低: "low" }[値];
+      if (項目 === "緊急度" && 札) dd.append(el("span", "badge " + 札, 値));
+      else dd.textContent = 値;
+      r.append(dd);
+      dl.append(r);
+    }
+    card.append(dl);
+
+    const actions = el("div", "card-actions");
+    actions.append(el("span", "btn primary", 設定.送るボタン));
+    actions.append(el("span", "btn secondary", 設定.直すボタン));
+    card.append(actions);
+    body.append(card);
+  }
+
+  function お知らせ(text, 動き) {
+    const n = el("div", "notice" + (動き ? " appear" : ""));
+    n.innerHTML = アイコン.チェック;
+    n.append(el("span", null, text));
+    chat.append(n);
+  }
+
+  // 直前の選択肢から 1 つを選んだ状態にする
+  function 選択肢を選ぶ(text, 押している) {
+    const groups = chat.querySelectorAll(".chips:not(.done)");
+    const group = groups[groups.length - 1];
+    if (!group) return;
+    const chip = [...group.children].find((c) => c.textContent === text);
+    if (押している) { chip?.classList.add("pressing"); return; }
+    chip?.classList.remove("pressing");
+    chip?.classList.add("selected");
+    group.classList.add("done");
+  }
+
+  // 直前のまとめのカードのボタンを押した状態にする
+  function ボタンを押す(text, 押している) {
+    const cards = chat.querySelectorAll(".card");
+    const card = cards[cards.length - 1];
+    const actions = card?.querySelector(".card-actions");
+    if (!actions) return;
+    const btn = [...actions.children].find((b) => b.textContent === text);
+    if (押している) { btn?.classList.add("pressing"); return; }
+    const done = el("div", "sent");
+    done.innerHTML = アイコン.チェック;
+    done.append(el("span", null, 設定.送ったあとの表示));
+    actions.replaceWith(done);
+  }
+
+  // ---- 1 手ぶんを表示する ----
+
+  function すぐに表示(step) {
+    switch (種類(step)) {
+      case "AI": AIの発言(step, false); break;
+      case "保護者": 保護者の発言(step.保護者, false); break;
+      case "保護者が選ぶ": 選択肢を選ぶ(step.保護者が選ぶ); 保護者の発言(step.保護者が選ぶ, false); break;
+      case "まとめ": まとめのカード(step.まとめ, false); break;
+      case "保護者が押す": ボタンを押す(step.保護者が押す); break;
+      case "お知らせ": お知らせ(step.お知らせ, false); break;
+    }
+  }
+
+  async function 動かして表示(step, id) {
+    const 続ける = () => id === animId;
+    switch (種類(step)) {
+      case "AI":
+      case "まとめ": {
+        const t = 入力中の表示();
+        下まで送る(true);
+        await wait(種類(step) === "まとめ" ? 1100 : 750);
+        if (!続ける()) return;
+        t.remove();
+        if (種類(step) === "AI") AIの発言(step, true);
+        else まとめのカード(step.まとめ, true);
+        break;
+      }
+      case "保護者": {
+        const text = step.保護者;
+        const 一文字 = Math.min(45, 1400 / text.length);
+        for (let i = 1; i <= text.length; i++) {
+          if (!続ける()) return;
+          入力欄(text.slice(0, i), true);
+          await wait(一文字);
+        }
+        await wait(250);
+        if (!続ける()) return;
+        入力欄("");
+        保護者の発言(text, true);
+        break;
+      }
+      case "保護者が選ぶ":
+        選択肢を選ぶ(step.保護者が選ぶ, true);
+        await wait(300);
+        if (!続ける()) return;
+        選択肢を選ぶ(step.保護者が選ぶ);
+        await wait(200);
+        if (!続ける()) return;
+        保護者の発言(step.保護者が選ぶ, true);
+        break;
+      case "保護者が押す":
+        ボタンを押す(step.保護者が押す, true);
+        await wait(350);
+        if (!続ける()) return;
+        ボタンを押す(step.保護者が押す);
+        break;
+      case "お知らせ":
+        お知らせ(step.お知らせ, true);
+        break;
+    }
+    下まで送る(true);
+    動作中 = false;
+  }
+
+  // ---- 画面全体を描き直す ----
+
+  function 表紙() {
+    const s = el("div", "splash");
+    const icon = el("div", "splash-icon");
+    icon.innerHTML = アイコン.吹き出し;
+    s.append(icon);
+    s.append(el("div", "splash-name", 設定.窓口の名前));
+    s.append(el("div", "splash-sub", 設定.ひとこと説明));
+    s.append(el("div", "splash-school", 設定.学校の名前));
+    chat.append(s);
+  }
+
+  // 場面 s の、pos 手目の手前までを動きなしで表示する
+  function 描画(n, s) {
+    chat.innerHTML = "";
+    入力欄("");
+    表示中の場面 = s;
+    clock.textContent = 台本[s].時刻;
+    if (n === 0) {
+      表紙();
+    } else {
+      chat.append(el("div", "date-chip", 台本[s].日付));
+      for (let i = 0; i < n; i++) if (手順[i].s === s) すぐに表示(手順[i].step);
+    }
+    下まで送る(false);
+  }
+
+  function ヒント更新() {
+    const s = pos === 0 ? 0 : 手順[pos - 1].s;
+    const 場面の中 = 手順.filter((t) => t.s === s);
+    const 何手目 = pos === 0 ? 0 : 手順.slice(0, pos).filter((t) => t.s === s).length;
+    progress.innerHTML = "";
+    const b = el("b", null, `場面 ${s + 1}/${台本.length}「${台本[s].場面の名前}」`);
+    progress.append(b, ` ${何手目} / ${場面の中.length}`);
+  }
+
+  // ---- 操作 ----
+
+  function 動きを止める() {
+    animId++;
+    動作中 = false;
+    描画(pos, 手順[pos - 1].s);
+  }
+
+  function 次へ() {
+    if (動作中) { 動きを止める(); return; }
+    if (pos >= 手順.length) return;
+    const { s, step } = 手順[pos];
+    // 新しい場面に入るときは、画面をまっさらにする
+    if (pos === 0 || s !== 表示中の場面) {
+      chat.innerHTML = "";
+      表示中の場面 = s;
+      clock.textContent = 台本[s].時刻;
+      chat.append(el("div", "date-chip appear", 台本[s].日付));
+    }
+    pos++;
+    ヒント更新();
+    動作中 = true;
+    動かして表示(step, ++animId);
+  }
+
+  function 戻る() {
+    animId++;
+    動作中 = false;
+    if (pos === 0) return;
+    pos--;
+    描画(pos, pos === 0 ? 0 : 手順[pos - 1].s);
+    ヒント更新();
+  }
+
+  function 場面へ(s) {
+    animId++;
+    動作中 = false;
+    pos = 手順.findIndex((t) => t.s === s);
+    if (pos < 0) return;
+    if (pos === 0) { 描画(0, 0); ヒント更新(); return; }
+    // 場面の最初（日付だけ出ている状態）にする
+    chat.innerHTML = "";
+    入力欄("");
+    表示中の場面 = s;
+    clock.textContent = 台本[s].時刻;
+    chat.append(el("div", "date-chip", 台本[s].日付));
+    progress.innerHTML = "";
+    progress.append(el("b", null, `場面 ${s + 1}/${台本.length}「${台本[s].場面の名前}」`), ` 0 / ${手順.filter((t) => t.s === s).length}`);
+  }
+
+  document.addEventListener("click", 次へ);
+  document.addEventListener("keydown", (e) => {
+    const k = e.key;
+    if ([" ", "ArrowRight", "ArrowDown", "Enter", "PageDown"].includes(k)) { e.preventDefault(); 次へ(); }
+    else if (["ArrowLeft", "ArrowUp", "Backspace", "PageUp"].includes(k)) { e.preventDefault(); 戻る(); }
+    else if (k === "r" || k === "R") { animId++; 動作中 = false; pos = 0; 描画(0, 0); ヒント更新(); }
+    else if (k === "h" || k === "H") hint.classList.toggle("hidden");
+    else if (/^[1-9]$/.test(k) && Number(k) <= 台本.length) 場面へ(Number(k) - 1);
+  });
+
+  // 「#数字」付きで開くと、その手数まで進めた状態から始まる（確認用）
+  const 開始 = Number(location.hash.slice(1));
+  if (開始 > 0 && 開始 <= 手順.length) {
+    pos = 開始;
+    描画(pos, 手順[pos - 1].s);
+  } else {
+    描画(0, 0);
+  }
+  ヒント更新();
+  // 文字の読み込みで高さが変わるので、読み込み後に表示位置を合わせ直す
+  document.fonts?.ready.then(() => 下まで送る(false));
+  // 全画面表示への切り替えなどで大きさが変わったときも合わせ直す
+  new ResizeObserver(() => { if (!動作中) 下まで送る(false); }).observe(chat);
+})();
+</script>
+</body>
+</html>

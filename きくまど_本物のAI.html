@@ -371,7 +371,7 @@ const 色 = {
     line-height: 1.4;
   }
   .notice svg { width: 1.25em; height: 1.25em; fill: currentColor; flex: none; }
-  .notice.error { border-color: var(--error); color: var(--error); }
+  .notice.error { border-color: var(--error); color: var(--error); white-space: pre-line; overflow-wrap: anywhere; }
 
   /* API キーを入れるカード */
   .key-card {
@@ -883,12 +883,14 @@ ${学校の情報.trim()}`;
 
   function エラーの説明(status, error) {
     const 理由 = error?.details?.find((d) => d.reason)?.reason;
-    if (理由 === "API_KEY_INVALID") return "API キーが正しくないようです。左下の「API キーを変える」から入れ直してください。";
-    if (status === 429) return "AI の利用回数の上限に達しました。1 分ほど待ってから、もう一度送ってください。";
-    if (status === 403) return "この API キーでは AI を使えないようです。Google AI Studio でキーの設定を確かめてください。";
-    if (status === 404) return `AI のモデル「${設定.モデル}」が見つかりません。設定の「モデル」を確かめてください。`;
-    if (status >= 500) return "AI の側で一時的なエラーが起きました。少し待ってから、もう一度送ってください。";
-    return `AI からエラーが返ってきました（${status}）。もう一度送ってください。${error?.message ? "\n" + error.message : ""}`;
+    // 原因を調べられるよう、Google から返ってきた中身も添える
+    const 詳しく = `\n\n詳しい内容: ${[status, error?.status, 理由, error?.message].filter(Boolean).join(" / ")}`;
+    if (理由 === "API_KEY_INVALID") return "API キーが正しくないようです。左下の「API キーを変える」から入れ直してください。" + 詳しく;
+    if (status === 429) return "AI の利用回数の上限に達しました。1 分ほど待ってから、もう一度送ってください。" + 詳しく;
+    if (status === 403) return "この API キーでは AI を使えないようです。Google AI Studio でキーの設定を確かめてください。" + 詳しく;
+    if (status === 404) return `AI のモデル「${設定.モデル}」が見つかりません。設定の「モデル」を確かめてください。` + 詳しく;
+    if (status >= 500) return "AI の側で一時的なエラーが起きました。少し待ってから、もう一度送ってください。" + 詳しく;
+    return `AI からエラーが返ってきました。もう一度送ってください。` + 詳しく;
   }
 
   async function 送る(text) {

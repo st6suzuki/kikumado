@@ -26,6 +26,7 @@
    【発表のときの操作】
    次へ: クリック／スペース／→　　戻る: ←　　最初から: R
    場面へジャンプ: 1・2　　左下の操作ヒントを隠す: H
+   スマホでは、タップで次へ／画面の左はしをタップで戻る
    ========================================================================== */
 
 const 設定 = {
@@ -61,11 +62,11 @@ const 台本 = [
     会話: [
       { AI: `こんばんは、きくまどです。
 学校へのご質問やご相談を、24時間お聞きします。` },
-      { 保護者: `今度の運動会、雨のときはどうやって連絡がきますか？` },
+      { 保護者: `個人面談の日にちの希望って、いつまでに出せばいいですか？` },
       {
-        AI: `運動会を雨で延期するときは、当日の朝6時までに、学校からのメールとホームページでお知らせします。
-延期した場合は、次の日に行う予定です。`,
-        出典: `学校のお知らせ「運動会のご案内」（10月20日配布）`,
+        AI: `個人面談は、12月1日（月）〜5日（金）に行います。
+日にちのご希望は、11月20日（木）までに、学校からのメールでお送りください。`,
+        出典: `学校のお知らせ「個人面談のご案内」（11月5日配布）`,
       },
       { 保護者: `わかりました。ありがとうございます！` },
       { AI: `どういたしまして。
@@ -446,6 +447,11 @@ const 台本 = [
   .splash-name { margin-top: 0.25em; font-size: 2.25em; font-weight: 700; color: var(--main); line-height: 1.2; }
   .splash-sub { font-size: 1.125em; font-weight: 700; }
   .splash-school { color: var(--sub-text); }
+  /* 指でさわる画面（スマホ・タブレット）だけに出す、操作の案内 */
+  .splash-touch { display: none; margin-top: 1.5em; font-size: 0.875em; font-weight: 700; color: var(--sub-text); }
+  @media (pointer: coarse) {
+    .splash-touch { display: block; }
+  }
 
   /* 入力欄（見た目だけ） */
   .composer {
@@ -817,6 +823,7 @@ const 台本 = [
     s.append(el("div", "splash-name", 設定.窓口の名前));
     s.append(el("div", "splash-sub", 設定.ひとこと説明));
     s.append(el("div", "splash-school", 設定.学校の名前));
+    s.append(el("div", "splash-touch", "タップで次へ ・ 左はしをタップで戻る"));
     chat.append(s);
   }
 
@@ -894,7 +901,14 @@ const 台本 = [
     progress.append(el("b", null, `場面 ${s + 1}/${台本.length}「${台本[s].場面の名前}」`), ` 0 / ${手順.filter((t) => t.s === s).length}`);
   }
 
-  document.addEventListener("click", 次へ);
+  // 指でさわったときだけ、画面の左はし（幅の 4 分の 1）のタップを「戻る」にする
+  // マウスのクリックは、どこを押しても「次へ」のまま
+  let 指でさわった = false;
+  document.addEventListener("pointerdown", (e) => { 指でさわった = e.pointerType === "touch"; });
+  document.addEventListener("click", (e) => {
+    if (指でさわった && e.clientX < window.innerWidth / 4) 戻る();
+    else 次へ();
+  });
   document.addEventListener("keydown", (e) => {
     const k = e.key;
     if ([" ", "ArrowRight", "ArrowDown", "Enter", "PageDown"].includes(k)) { e.preventDefault(); 次へ(); }
